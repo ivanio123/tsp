@@ -9,7 +9,7 @@ public class Main {
         TSPModel model = new TSPModel();
 
         // Ініціалізувати матрицю відстаней та назви міст
-        /* int[][] matrix = {
+        int[][] matrix = {
                 {0, 2, 9, 10},
                 {1, 0, 6, 4},
                 {15, 7, 0, 8},
