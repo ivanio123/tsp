@@ -38,14 +38,18 @@ public class TSPController {
 
                 case 1:
                     // Ручний ввід матриці відстаней
-                    String[] cityNames = null;
+                    String[] cityNames = new String[1];
                     int[][] manualMatrix = view.getManualMatrixInput(cityNames);
-                    model.setDistanceMatrix(manualMatrix);
-                    view.showResult("Distance matrix updated successfully.");
+
+                    if (manualMatrix != null) {
+                        model.setDistanceMatrix(manualMatrix);
+                        model.setCityNames(cityNames[0].split(","));
+                        view.showResult("Matrix and city names updated successfully.");
+                    }
                     break;
 
                 case 2:
-                    // Імпорт матриці із CSV
+
                     try {
                         String filePath = view.getCSVFilePath();
                         int[][] importedMatrix = model.importMatrixFromCSV(filePath);
@@ -57,10 +61,15 @@ public class TSPController {
                     break;
 
                 case 3:
-                    // Запуск алгоритму "Найближчого сусіда"
-                    runNearestNeighbor();
+                    // Генерація матриці
+                    generateRandomMatrix();
                     break;
-
+                case 4:
+                    saveRoute();
+                    break;
+                case 5:
+                    displayRoute();
+                    break;
                 default:
                     view.showResult("Invalid choice. Exiting.");
                     return;
@@ -78,7 +87,7 @@ public class TSPController {
             }
             initialTour[model.getDistanceMatrix().length] = 0;
 
-            // Вибір алгоритму
+
             choice = view.showAlgorithmMenu();
 
             switch (choice) {
@@ -99,6 +108,46 @@ public class TSPController {
             }
         }
     }
+   /* public void runExampleMatrix() {
+        // Приклад матриці відстаней
+        int[][] exampleMatrix = {
+                {0, 10, 15, 20},
+                {10, 0, 35, 25},
+                {15, 35, 0, 30},
+                {20, 25, 30, 0}
+        };
+
+        // Назви міст
+        String[] exampleCities = {"City A", "City B", "City C", "City D"};
+
+        // Налаштування матриці у моделі
+        model.setDistanceMatrix(exampleMatrix);
+        model.setCityNames(exampleCities);
+
+        // Запуск алгоритму
+        long startTime = System.nanoTime();
+        int[] bestRoute = model.runAlgorithm("NearestNeighbor"); // Викликаємо алгоритм "Найближчого сусіда"
+        long endTime = System.nanoTime();
+
+        // Обчислення часу виконання
+        double executionTime = (endTime - startTime) / 1_000_000.0;
+
+        // Відображення результату
+        view.showResult("Execution Time: " + executionTime + " ms");
+        displayRoute(bestRoute, executionTime);
+    }
+*/
+    private void displayRoute() {
+        long startTime = System.nanoTime();
+        String[] cityNames = model.getCityNames();
+        int[] bestRoute = model.getBestRoute();
+        int[][] distanceMatrix = model.getDistanceMatrix();
+        int totalCost = model.getTotalCost();
+        long endTime = System.nanoTime();
+        long executionTime = (endTime - startTime) / 1_000_000;
+        // view.showExecutionTime(executionTime, algorithm);
+        view.displayRoute(cityNames, bestRoute, distanceMatrix, totalCost, e -> saveRoute());
+    }
 
 
     private void runNearestNeighbor() {
@@ -116,7 +165,7 @@ public class TSPController {
         int[] tour = twoOpt.twoOptAlgorithm(initialTour, model.getDistanceMatrix());
 
         view.showResult("2-Opt Tour: " + java.util.Arrays.toString(tour));
-        displayAndSavePetriNet(tour, "2-Opt");
+        //displayAndSavePetriNet(tour, "2-Opt");
 
         showRouteTable(tour);
     }
@@ -126,7 +175,7 @@ public class TSPController {
         int[] tour = threeOpt.threeOptAlgorithm(initialTour, model.getDistanceMatrix());
 
         view.showResult("3-Opt Tour: " + java.util.Arrays.toString(tour));
-        displayAndSavePetriNet(tour, "3-Opt");
+        //displayAndSavePetriNet(tour, "3-Opt");
 
         showRouteTable(tour);
     }
@@ -136,6 +185,28 @@ public class TSPController {
         run2Opt(initialTour);
         run3Opt(initialTour);
     }
+    private void displayRouteWithTime(int[] tour, String algorithm) {
+
+        long startTime = System.nanoTime();
+
+
+        tour = algorithm.equals("Nearest Neighbor") ?
+                new NearestNeighborAlgorithm().nearestNeighborAlgorithm(model.getDistanceMatrix()) :
+                algorithm.equals("2-Opt") ?
+                        new TwoOptAlgorithm().twoOptAlgorithm(tour, model.getDistanceMatrix()) :
+                        new ThreeOptAlgorithm().threeOptAlgorithm(tour, model.getDistanceMatrix());
+
+
+        long endTime = System.nanoTime();
+        long executionTime = (endTime - startTime) / 1_000_000;
+
+
+        view.showExecutionTime(executionTime, algorithm);
+
+
+        displayRoute();
+    }
+
 
     private void displayAndSavePetriNet(int[] tour, String algorithm) {
         Graph<String, DefaultEdge> petriNet = createPetriNet(model.getDistanceMatrix(), tour);
@@ -164,7 +235,18 @@ public class TSPController {
 
         return petriNet;
     }
+    private void generateRandomMatrix() {
+        try {
+            int size = view.getInputGraphSize();
+            String maxDistInput = JOptionPane.showInputDialog("Enter the maximum distance for edges:");
+            int maxDistance = Integer.parseInt(maxDistInput);
 
+            model.generateRandomMatrix(size, maxDistance);
+            view.showResult("Random adjacency matrix generated successfully for " + size + " cities.");
+        } catch (Exception e) {
+            view.showResult("Failed to generate matrix: " + e.getMessage());
+        }
+    }
     private void showRouteTable(int[] tour) {
         String[] columnNames = {"City Number", "City Name", "Distance to Previous"};
         DefaultTableModel modelTable = new DefaultTableModel(columnNames, 0);
@@ -189,5 +271,23 @@ public class TSPController {
 
         tableFrame.setVisible(true);
         tableFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+    }
+    private void saveRoute() {
+        try {
+            int choice = view.showSaveFormatMenu();
+            String filePath = view.getFilePath();
+
+            if (choice == 0) {
+                model.saveRouteToCSV(filePath);
+                view.showResult("Route saved successfully to CSV: " + filePath);
+            } else if (choice == 1) {
+               // model.saveRouteToXLSX(filePath);
+                view.showResult("Route saved successfully to XLSX: " + filePath);
+            } else {
+                view.showResult("Operation cancelled.");
+            }
+        } catch (Exception e) {
+            view.showResult("Failed to save route: " + e.getMessage());
+        }
     }
 }
